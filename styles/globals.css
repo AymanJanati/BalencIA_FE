@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Custom CSS Variables ──────────────────────────────────────────────── */
+
+:root {
+  --color-background-primary: #FFFFFF;
+  --color-background-secondary: #F7F9F8;
+  --color-border: #E5E7EB;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #6B7280;
+  --gradient-brand: linear-gradient(135deg, #3e5e3c, #2f8876, #05fecb);
+}
+
+/* ─── Base resets ───────────────────────────────────────────────────────── */
+
+body {
+  @apply bg-background-primary text-text-primary font-sans;
+}
