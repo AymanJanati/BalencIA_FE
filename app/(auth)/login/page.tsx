@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ROUTES } from "@/lib/constants";
 
+import Image from "next/image";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
@@ -67,12 +68,9 @@ export default function LoginPage() {
         <Card padding="lg" className="border-border/60 shadow-xl">
           {/* Logo + title */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-12 h-12 bg-brand rounded-xl flex items-center justify-center mb-4 text-white font-bold text-2xl shadow-sm select-none">
-              B
+            <div className="relative w-48 h-12 mb-4">
+              <Image src="/logo-text.png" alt="BalancIA Logo" fill sizes="192px" className="object-contain" priority />
             </div>
-            <h1 className="text-page-title text-text-primary mb-1 text-center">
-              Welcome to BalancIA
-            </h1>
             <p className="text-body text-text-secondary text-center text-sm">
               Balance through AI
             </p>

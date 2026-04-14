@@ -12,9 +12,15 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import { motion } from "framer-motion";
+import { Sparkles, TrendingUp, Activity, Compass, Info, CheckCircle2 } from "lucide-react";
 
 import dynamic from "next/dynamic";
 const TrendChart = dynamic(() => import("@/components/data/TrendChart"), {
+  ssr: false,
+  loading: () => <div className="animate-pulse h-full w-full bg-border/40 rounded-xl" />,
+});
+const ScoreCompositionChart = dynamic(() => import("@/components/data/ScoreCompositionChart"), {
   ssr: false,
   loading: () => <div className="animate-pulse h-full w-full bg-border/40 rounded-xl" />,
 });
@@ -85,38 +91,52 @@ export default function DashboardPage() {
   }
 
   // ── Success ───────────────────────────────────────────────────────────────
-  const { latest_score, ai_support, trend, checkin_history } = data;
+  const { latest_score, ai_support, trend, checkin_history, behavioral_metrics, meeting_metrics } = data;
 
   // global_score is 0-100 in upgraded backend
   const displayScore = latest_score.global_score.toFixed(0);
   const riskLevel    = latest_score.risk_level as "low" | "medium" | "high";
 
-  return (
-    <div className="flex flex-col gap-6 max-w-[1100px] mx-auto opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
 
-      <PageHeader
-        title="Your Wellbeing Dashboard"
-        subtitle={`Welcome back, ${session.user.name}. Here are your real-time insights.`}
-        actions={
-          <Button onClick={() => router.push(ROUTES.checkin)}>
-            Log today&apos;s Check-in
-          </Button>
-        }
-      />
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
+  };
+
+  return (
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="flex flex-col gap-6 max-w-[1100px] mx-auto"
+    >
+      <motion.div variants={itemVariants}>
+        <PageHeader
+          title="Your Wellbeing Dashboard"
+          subtitle={`Welcome back, ${session.user.name}. Here are your real-time insights.`}
+          actions={
+            <Button onClick={() => router.push(ROUTES.checkin)}>
+              Log today&apos;s Check-in
+            </Button>
+          }
+        />
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Left column */}
         <div className="lg:col-span-2 flex flex-col gap-6">
 
           {/* Score card */}
-          <Card padding="lg" className="flex flex-col sm:flex-row items-center gap-8 justify-between relative overflow-hidden">
+          <motion.div variants={itemVariants}>
+            <Card padding="lg" className="flex flex-col sm:flex-row items-center gap-8 justify-between relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-brand rounded-full opacity-[0.03] blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
             <div className="flex flex-col items-start gap-4 z-10 w-full sm:w-auto">
               <h3 className="text-caption font-semibold text-text-secondary uppercase tracking-widest text-center sm:text-left w-full">
@@ -159,25 +179,96 @@ export default function DashboardPage() {
               )}
             </div>
           </Card>
+          </motion.div>
 
-          {/* Trend chart */}
-          <Card padding="lg" className="flex flex-col flex-1 min-h-[320px]">
-            <h3 className="text-card-title text-text-primary mb-6">Wellbeing Trend</h3>
-            <div className="flex-1 flex flex-col items-center justify-center text-text-secondary bg-background-secondary/40 rounded-xl border border-border/50 p-6">
-              <div className="[&_p]:text-body [&_p]:font-medium [&_p]:text-text-secondary">
-                <TrendChart data={trend} />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <motion.div variants={itemVariants} className="flex">
+              <Card padding="lg" className="flex flex-col min-h-[320px] w-full">
+                <h3 className="text-card-title text-text-primary mb-3 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-text-secondary" />
+                  Signal Composition
+                </h3>
+                <p className="text-caption text-text-secondary mb-2">
+                  Explainable score components from your latest cycle.
+                </p>
+                <div className="flex-1">
+                  <ScoreCompositionChart score={latest_score} />
+                </div>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="flex">
+              <Card padding="lg" className="flex flex-col min-h-[320px] w-full">
+                <h3 className="text-card-title text-text-primary mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-text-secondary" />
+                  Wellbeing Trend
+                </h3>
+              <p className="text-caption text-text-secondary mb-2">
+                Risk evolution over recent check-ins.
+              </p>
+              <div className="flex-1 flex flex-col items-center justify-center text-text-secondary bg-background-secondary/40 rounded-xl border border-border/50 p-4">
+                <div className="[&_p]:text-body [&_p]:font-medium [&_p]:text-text-secondary w-full">
+                  <TrendChart data={trend} />
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+            </motion.div>
+          </div>
+
+          {(behavioral_metrics || meeting_metrics) && (
+            <motion.div variants={itemVariants}>
+              <Card padding="lg" className="flex flex-col gap-4">
+                <h3 className="text-card-title text-text-primary flex items-center gap-2">
+                  <Compass className="w-5 h-5 text-text-secondary" />
+                  Operational Signal Snapshot
+                </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {behavioral_metrics && (
+                  <>
+                    <div className="rounded-lg border border-border bg-background-secondary p-3">
+                      <div className="text-xs uppercase font-semibold text-text-secondary">Typing rhythm</div>
+                      <div className="text-xl font-bold text-text-primary">{behavioral_metrics.typing_rhythm_score}</div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background-secondary p-3">
+                      <div className="text-xs uppercase font-semibold text-text-secondary">Inactivity bursts</div>
+                      <div className="text-xl font-bold text-text-primary">{behavioral_metrics.inactivity_bursts}</div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background-secondary p-3">
+                      <div className="text-xs uppercase font-semibold text-text-secondary">Session duration</div>
+                      <div className="text-xl font-bold text-text-primary">{behavioral_metrics.session_duration_minutes}m</div>
+                    </div>
+                  </>
+                )}
+                {meeting_metrics && (
+                  <>
+                    <div className="rounded-lg border border-border bg-background-secondary p-3">
+                      <div className="text-xs uppercase font-semibold text-text-secondary">Meeting hours</div>
+                      <div className="text-xl font-bold text-text-primary">{meeting_metrics.meeting_hours}</div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background-secondary p-3">
+                      <div className="text-xs uppercase font-semibold text-text-secondary">Back-to-back</div>
+                      <div className="text-xl font-bold text-text-primary">{meeting_metrics.back_to_back_count}</div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background-secondary p-3">
+                      <div className="text-xs uppercase font-semibold text-text-secondary">No-break blocks</div>
+                      <div className="text-xl font-bold text-text-primary">{meeting_metrics.no_break_blocks}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+              </Card>
+            </motion.div>
+          )}
         </div>
 
-        {/* Right column */}
         <div className="flex flex-col gap-6">
           {ai_support && (
-            <Card padding="lg" className="bg-brand-subtle border border-brand/10 shadow-none">
-              <h3 className="text-card-title text-text-primary mb-3 flex items-center gap-2">
-                <span className="text-brand">✨</span> Personal Insight
-              </h3>
+            <motion.div variants={itemVariants}>
+              <Card padding="lg" className="bg-brand-subtle border-brand/20">
+                <h3 className="text-card-title text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#05fecb]" />
+                  Personal Insight
+                </h3>
               <div className="text-body text-text-secondary leading-relaxed [&_p]:font-medium [&_p]:text-[15px]">
                 <InsightCard message={ai_support.message} />
               </div>
@@ -193,21 +284,28 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
-            </Card>
+              </Card>
+            </motion.div>
           )}
 
           {ai_support?.actions && ai_support.actions.length > 0 && (
-            <Card padding="lg">
-              <h3 className="text-card-title text-text-primary mb-4">Recommended Steps</h3>
-              <div className="[&_ul]:flex [&_ul]:flex-col [&_ul]:gap-3 [&_li]:bg-background-secondary [&_li]:text-text-secondary [&_li]:font-medium [&_li]:p-3 [&_li]:rounded-lg [&_li]:border [&_li]:border-border [&_li]:text-body">
-                <RecommendationCard actions={ai_support.actions} />
-              </div>
-            </Card>
+            <motion.div variants={itemVariants}>
+              <Card padding="lg">
+                <h3 className="text-card-title text-text-primary mb-4 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-text-secondary" />
+                  Recommended Steps
+                </h3>
+                <div className="[&_ul]:flex [&_ul]:flex-col [&_ul]:gap-3 [&_li]:bg-background-secondary [&_li]:text-text-secondary [&_li]:font-medium [&_li]:p-3 [&_li]:rounded-lg [&_li]:border [&_li]:border-border [&_li]:text-body">
+                  <RecommendationCard actions={ai_support.actions} />
+                </div>
+              </Card>
+            </motion.div>
           )}
 
           {checkin_history && checkin_history.length > 0 && (
-            <Card padding="lg">
-              <h3 className="text-card-title text-text-primary mb-4">Recent Logs</h3>
+            <motion.div variants={itemVariants}>
+              <Card padding="lg">
+                <h3 className="text-card-title text-text-primary mb-4">Recent Logs</h3>
               <div className="flex flex-col gap-3">
                 {checkin_history.slice(0, 4).map((checkin) => (
                   <div key={checkin.id} className="flex justify-between items-center text-body border-b border-border/60 last:border-0 pb-3 last:pb-0">
@@ -218,10 +316,11 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-            </Card>
+              </Card>
+            </motion.div>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

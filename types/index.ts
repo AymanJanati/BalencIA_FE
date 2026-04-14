@@ -37,6 +37,8 @@ export interface CheckinPayload {
   fatigue: ScaleValue;
   workload: ScaleValue;
   note?: string;
+  behavioral_metrics?: BehavioralMetrics;
+  meeting_metrics?: MeetingMetrics;
 }
 
 export interface DailyCheckin {
@@ -169,6 +171,29 @@ export interface ManagerRecommendation {
   summary: string;
   actions: string[];
   reasons?: string[];               // upgraded: grounded drivers
+}
+
+export type InterventionType =
+  | "reduce_meetings"
+  | "redistribute_workload"
+  | "add_recovery_time"
+  | "reduce_task_pressure";
+
+export interface SimulationRequest {
+  intervention_type: InterventionType;
+  intensity: number;
+}
+
+export interface SimulationImpact {
+  team_score_before: number;
+  team_score_after: number;
+  high_risk_count_before: number;
+  high_risk_count_after: number;
+}
+
+export interface SimulationResponse {
+  intervention_type: string;
+  estimated_impact: SimulationImpact;
 }
 
 // ─── API errors ─────────────────────────────────────────────────────────────

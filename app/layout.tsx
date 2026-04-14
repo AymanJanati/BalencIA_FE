@@ -5,8 +5,11 @@ import { AuthProvider } from "@/context/AuthContext";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "BalencIA",
+  title: "BalancIA",
   description: "AI-powered employee wellbeing platform",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

@@ -6,15 +6,37 @@
 
 :root {
   --color-background-primary: #FFFFFF;
-  --color-background-secondary: #F7F9F8;
+  --color-background-secondary: #F7F9FCA0; /* softer pastel secondary */
   --color-border: #E5E7EB;
   --color-text-primary: #0F172A;
-  --color-text-secondary: #6B7280;
-  --gradient-brand: linear-gradient(135deg, #3e5e3c, #2f8876, #05fecb);
+  --color-text-secondary: #64748B;
+  --gradient-brand: linear-gradient(135deg, #1f4037, #99f2c8);
 }
 
 /* ─── Base resets ───────────────────────────────────────────────────────── */
 
 body {
-  @apply bg-background-primary text-text-primary font-sans;
+  @apply bg-background-primary text-text-primary font-sans antialiased text-slate-800;
+}
+
+/* Enhanced scrollbar for premium look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Selection */
+::selection {
+  background: rgba(31, 64, 55, 0.15);
+  color: #1f4037;
 }

@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { EMPLOYEE_NAV, MANAGER_NAV } from "@/lib/constants";
 
+import Image from "next/image";
+
 // ─── Nav icons ─────────────────────────────────────────────────────────────
 // Simple inline SVG icons — no icon library dependency
 
@@ -58,14 +60,10 @@ export default function Sidebar() {
     <aside className="fixed top-0 left-0 h-screen w-sidebar bg-background-primary border-r border-border flex flex-col z-30">
       {/* ─── Brand ─────────────────────────────────────────────────── */}
       <div className="h-topbar flex items-center px-5 border-b border-border shrink-0">
-        <div className="flex items-center gap-2.5">
-          {/* Gradient dot mark */}
-          <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-extrabold leading-none">B</span>
+        <div className="flex items-center gap-2.5 flex-1 pt-1.5">
+          <div className="relative w-32 h-10 shrink-0">
+            <Image src="/logo-text.png" alt="BalancIA Logo" fill sizes="128px" className="object-contain object-left" priority />
           </div>
-          <span className="text-card-title text-text-primary font-semibold tracking-tight">
-            BalencIA
-          </span>
         </div>
       </div>
 
