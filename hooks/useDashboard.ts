@@ -1,13 +1,15 @@
 "use client";
 
-// hooks/useDashboard.ts — BalencIA
-// Fetches employee dashboard data. Use in /dashboard page.
+// hooks/useDashboard.ts — BalancIA
+// Fetches employee dashboard data. Passes auth token to the real API.
 
 import { useState, useEffect } from "react";
 import type { AsyncState, EmployeeDashboard } from "@/types";
 import { getEmployeeDashboard } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 
 export function useDashboard(userId: string | null) {
+  const { session } = useAuth();
   const [state, setState] = useState<AsyncState<EmployeeDashboard>>({
     data:    null,
     loading: false,
@@ -19,12 +21,12 @@ export function useDashboard(userId: string | null) {
 
     setState({ data: null, loading: true, error: null });
 
-    getEmployeeDashboard(userId)
+    getEmployeeDashboard(userId, session?.token)
       .then((data) => setState({ data, loading: false, error: null }))
       .catch((err: Error) =>
         setState({ data: null, loading: false, error: err.message })
       );
-  }, [userId]);
+  }, [userId, session?.token]);
 
   return state;
 }

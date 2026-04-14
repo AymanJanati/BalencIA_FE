@@ -15,9 +15,11 @@ export default function EmployeeRow({ employee }: EmployeeRowProps) {
       </div>
       <div className="flex items-center gap-4">
         <span className="text-body font-semibold text-text-secondary">
-          {employee.latest_score.toFixed(1)}
+          {employee.score != null 
+            ? `${employee.score.toFixed(0)}/100` 
+            : employee.latest_score?.toFixed(1) || "N/A"}
         </span>
-        <Badge level={employee.risk_level} />
+        <Badge level={employee.risk_level as "low" | "medium" | "high"} />
       </div>
     </div>
   );

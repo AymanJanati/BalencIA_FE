@@ -10,6 +10,7 @@ import type {
   LoginFormValues,
   ManagerRecommendation,
   ManagerSummary,
+  RiskBreakdown,
   TeamEmployee,
   TrendPoint,
   UserProfile,
@@ -68,7 +69,6 @@ export const mockSessions: Record<string, AuthSession> = {
 export const mockLoginDefaults: LoginFormValues = {
   email: "youssef@balencia-demo.com",
   password: "demo",
-  role: "employee",
 };
 
 export const mockCheckinsByUser: Record<string, DailyCheckin[]> = {
@@ -230,27 +230,27 @@ export const mockCheckinsByUser: Record<string, DailyCheckin[]> = {
   ],
 };
 
-export const mockScoresByUser: Record<string, BurnoutScore[]> = {
+export const mockScoresByUser: Record<string, RiskBreakdown[]> = {
   emp_001: [
-    { score: 4.0, risk_level: "high" },
-    { score: 4.3, risk_level: "high" },
-    { score: 4.55, risk_level: "high" },
-    { score: 4.7, risk_level: "high" },
-    { score: 4.85, risk_level: "high" },
+    { self_report_score: 80, trend_score: 80, global_score: 80, risk_level: "high" },
+    { self_report_score: 83, trend_score: 85, global_score: 85, risk_level: "high" },
+    { self_report_score: 88, trend_score: 90, global_score: 90, risk_level: "high" },
+    { self_report_score: 91, trend_score: 92, global_score: 93, risk_level: "high" },
+    { self_report_score: 95, trend_score: 95, global_score: 96, risk_level: "high" },
   ],
   emp_002: [
-    { score: 2.8, risk_level: "medium" },
-    { score: 2.9, risk_level: "medium" },
-    { score: 3.1, risk_level: "medium" },
-    { score: 3.4, risk_level: "medium" },
-    { score: 3.45, risk_level: "medium" },
+    { self_report_score: 55, trend_score: 50, global_score: 52, risk_level: "medium" },
+    { self_report_score: 58, trend_score: 55, global_score: 56, risk_level: "medium" },
+    { self_report_score: 60, trend_score: 62, global_score: 61, risk_level: "medium" },
+    { self_report_score: 65, trend_score: 68, global_score: 66, risk_level: "medium" },
+    { self_report_score: 68, trend_score: 70, global_score: 69, risk_level: "medium" },
   ],
   emp_003: [
-    { score: 1.8, risk_level: "low" },
-    { score: 1.85, risk_level: "low" },
-    { score: 2.0, risk_level: "low" },
-    { score: 1.9, risk_level: "low" },
-    { score: 1.7, risk_level: "low" },
+    { self_report_score: 25, trend_score: 20, global_score: 22, risk_level: "low" },
+    { self_report_score: 28, trend_score: 25, global_score: 26, risk_level: "low" },
+    { self_report_score: 30, trend_score: 32, global_score: 31, risk_level: "low" },
+    { self_report_score: 25, trend_score: 28, global_score: 27, risk_level: "low" },
+    { self_report_score: 20, trend_score: 25, global_score: 22, risk_level: "low" },
   ],
 };
 
@@ -389,8 +389,10 @@ export const mockManagerRecommendations: ManagerRecommendation = {
 export const mockLatestCheckinResponse: CheckinResponse = {
   success: true,
   checkin_id: "chk_demo_001",
-  burnout_score: {
-    score: 4.1,
+  risk_breakdown: {
+    self_report_score: 82,
+    trend_score: 85,
+    global_score: 84,
     risk_level: "high",
   },
   ai_support: {
@@ -401,6 +403,10 @@ export const mockLatestCheckinResponse: CheckinResponse = {
       "Delay one non-urgent task",
       "Avoid unnecessary meetings today",
     ],
+    reasons: [
+      "Your reported stress is peaking",
+      "Your fatigue has worsened since yesterday"
+    ]
   },
 };
 
@@ -433,3 +439,13 @@ export function getMockManagerRecommendations(teamId: string): ManagerRecommenda
 export function getMockSessionByRole(role: "employee" | "manager"): AuthSession {
   return role === "manager" ? mockSessions.manager : mockSessions.employee_youssef;
 }
+
+export function getMockSessionByEmail(email: string): AuthSession | null {
+  const user = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  if (!user) return null;
+  return {
+    user,
+    token: `demo-token-${user.id}`,
+  };
+}
+

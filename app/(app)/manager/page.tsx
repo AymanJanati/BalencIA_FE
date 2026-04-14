@@ -167,7 +167,8 @@ export default function ManagerPage() {
           <div className="sticky top-24">
             <ManagerRecommendationBlock 
               summary={recommendations.summary} 
-              actions={recommendations.actions} 
+              actions={recommendations.actions}
+              reasons={recommendations.reasons}
             />
           </div>
         </div>

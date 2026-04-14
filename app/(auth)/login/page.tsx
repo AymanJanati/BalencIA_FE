@@ -1,114 +1,161 @@
 "use client";
 
-// app/(auth)/login/page.tsx — Login screen
+// app/(auth)/login/page.tsx — BalancIA login screen
+// Real email+password login calling POST /auth/login.
+// Demo credentials shown below the form for easy access.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ROUTES } from "@/lib/constants";
-import type { UserRole } from "@/types";
 
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
+const DEMO_ACCOUNTS = [
+  { label: "Employee — Youssef", email: "youssef.alaoui@balancia.demo", role: "Employee" },
+  { label: "Employee — Fatima",  email: "fatimazahra.idrissi@balancia.demo", role: "Employee" },
+  { label: "Employee — Mehdi",   email: "mehdi.benchrifa@balancia.demo", role: "Employee" },
+  { label: "Manager — Nadia",    email: "nadia.bensouda@balancia.demo", role: "Manager"  },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
-  
-  // Hackathon logic: select a role directly to mock the login
-  const [selectedRole, setSelectedRole] = useState<UserRole>("employee");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("demo");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoggingIn(true);
-    
-    // Simulate minor network delay for realism
-    setTimeout(() => {
-      login(selectedRole);
-      
-      // Redirect based on role
-      if (selectedRole === "employee") {
-        router.push(ROUTES.checkin);
+    if (!email.trim()) { setError("Please enter your email."); return; }
+    setError(null);
+    setIsLoading(true);
+    try {
+      await login({ email: email.trim().toLowerCase(), password });
+      // Redirect is handled by AuthContext-aware layout after session is set.
+      // We read the role from the session — give it a tick to propagate.
+      await new Promise((r) => setTimeout(r, 100));
+      const stored = localStorage.getItem("balancia_session");
+      if (stored) {
+        const { user } = JSON.parse(stored);
+        router.push(user.role === "manager" ? ROUTES.manager : ROUTES.checkin);
       } else {
-        router.push(ROUTES.manager);
+        router.push(ROUTES.checkin);
       }
-    }, 600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fillDemo = (demoEmail: string) => {
+    setEmail(demoEmail);
+    setPassword("demo");
+    setError(null);
   };
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-background-secondary p-4">
-      {/* Decorative background blur */}
+      {/* Decorative glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand rounded-full opacity-[0.04] blur-[100px] pointer-events-none" />
 
-      <Card padding="lg" className="w-full max-w-md relative z-10 border-border/60 shadow-xl">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-brand rounded-xl flex items-center justify-center mb-4 text-white font-bold text-2xl shadow-sm cursor-default select-none">
-            B
-          </div>
-          <h1 className="text-page-title text-text-primary mb-2 text-center">
-            Welcome to BalencIA
-          </h1>
-          <p className="text-body text-text-secondary text-center">
-            Log in to manage your wellbeing.
-          </p>
-        </div>
-
-        <form onSubmit={handleLogin} className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-body font-medium text-text-primary">Email address</label>
-            <input 
-              type="email" 
-              placeholder="demo@balencia.ai"
-              defaultValue="demo@balencia.ai"
-              required
-              className="w-full px-4 py-3 rounded-input border border-border focus:outline-none focus:ring-2 focus:ring-[#2f8876]/20 focus:border-[#2f8876] transition-colors bg-background-primary text-text-primary"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-body font-medium text-text-primary">Select Demo Role</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedRole("employee")}
-                className={`py-3 px-4 rounded-input border text-body font-semibold transition-all duration-200 text-center ${
-                  selectedRole === "employee" 
-                    ? "bg-brand-subtle border-[#2f8876] text-[#2f8876] shadow-sm" 
-                    : "bg-background-primary border-border text-text-secondary hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                Employee
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedRole("manager")}
-                className={`py-3 px-4 rounded-input border text-body font-semibold transition-all duration-200 text-center ${
-                  selectedRole === "manager" 
-                    ? "bg-brand-subtle border-[#2f8876] text-[#2f8876] shadow-sm" 
-                    : "bg-background-primary border-border text-text-secondary hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                Manager
-              </button>
+      <div className="w-full max-w-md flex flex-col gap-4 relative z-10">
+        <Card padding="lg" className="border-border/60 shadow-xl">
+          {/* Logo + title */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-12 h-12 bg-brand rounded-xl flex items-center justify-center mb-4 text-white font-bold text-2xl shadow-sm select-none">
+              B
             </div>
-            <span className="text-caption text-text-secondary mt-1">
-              (Hackathon feature to easily switch between flows)
-            </span>
+            <h1 className="text-page-title text-text-primary mb-1 text-center">
+              Welcome to BalancIA
+            </h1>
+            <p className="text-body text-text-secondary text-center text-sm">
+              Balance through AI
+            </p>
           </div>
 
-          <div className="pt-4">
-            <Button 
-              type="submit" 
-              size="lg" 
-              className="w-full justify-center"
-              disabled={isLoggingIn}
-            >
-              {isLoggingIn ? "Authenticating..." : `Login as ${selectedRole === "employee" ? "Employee" : "Manager"}`}
-            </Button>
+          {/* Error banner */}
+          {error && (
+            <div className="mb-5 px-4 py-3 rounded-lg bg-risk-high-bg border border-red-200 text-risk-high-text text-body text-sm font-medium">
+              {error}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleLogin} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-body font-medium text-text-primary text-sm">
+                Work email
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="w-full px-4 py-3 rounded-input border border-border focus:outline-none focus:ring-2 focus:ring-[#2f8876]/20 focus:border-[#2f8876] transition-colors bg-background-primary text-text-primary text-sm"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-body font-medium text-text-primary text-sm">
+                Password
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full px-4 py-3 rounded-input border border-border focus:outline-none focus:ring-2 focus:ring-[#2f8876]/20 focus:border-[#2f8876] transition-colors bg-background-primary text-text-primary text-sm"
+              />
+            </div>
+
+            <div className="pt-1">
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full justify-center"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in…" : "Sign in"}
+              </Button>
+            </div>
+          </form>
+        </Card>
+
+        {/* Demo quick-fill card */}
+        <Card padding="md" className="border-border/40 bg-background-secondary/60">
+          <p className="text-caption font-semibold text-text-secondary uppercase tracking-widest mb-3 text-xs">
+            Demo accounts — password: <span className="font-bold text-brand">demo</span>
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {DEMO_ACCOUNTS.map((acc) => (
+              <button
+                key={acc.email}
+                type="button"
+                onClick={() => fillDemo(acc.email)}
+                className={`text-left px-3 py-2.5 rounded-lg border text-xs transition-all duration-150 ${
+                  email === acc.email
+                    ? "bg-brand-subtle border-[#2f8876] text-[#2f8876] font-semibold"
+                    : "bg-background-primary border-border text-text-secondary hover:border-gray-300 hover:text-text-primary"
+                }`}
+              >
+                <span className="block font-semibold">{acc.role}</span>
+                <span className="block text-[10px] opacity-70 truncate">{acc.email.split("@")[0]}</span>
+              </button>
+            ))}
           </div>
-        </form>
-      </Card>
+        </Card>
+      </div>
     </main>
   );
 }

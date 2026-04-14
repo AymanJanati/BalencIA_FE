@@ -1,11 +1,12 @@
 "use client";
 
-// hooks/useManagerSummary.ts — BalencIA
-// Fetches manager summary + recommendations. Use in /manager page.
+// hooks/useManagerSummary.ts — BalancIA
+// Fetches manager summary + recommendations. Passes auth token to the real API.
 
 import { useState, useEffect } from "react";
 import type { AsyncState, ManagerRecommendation, ManagerSummary } from "@/types";
 import { getManagerRecommendations, getManagerSummary } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 
 interface ManagerData {
   summary:         ManagerSummary;
@@ -13,6 +14,7 @@ interface ManagerData {
 }
 
 export function useManagerSummary(teamId: string | null) {
+  const { session } = useAuth();
   const [state, setState] = useState<AsyncState<ManagerData>>({
     data:    null,
     loading: false,
@@ -25,8 +27,8 @@ export function useManagerSummary(teamId: string | null) {
     setState({ data: null, loading: true, error: null });
 
     Promise.all([
-      getManagerSummary(teamId),
-      getManagerRecommendations(teamId),
+      getManagerSummary(teamId, session?.token),
+      getManagerRecommendations(teamId, session?.token),
     ])
       .then(([summary, recommendations]) =>
         setState({ data: { summary, recommendations }, loading: false, error: null })
@@ -34,7 +36,7 @@ export function useManagerSummary(teamId: string | null) {
       .catch((err: Error) =>
         setState({ data: null, loading: false, error: err.message })
       );
-  }, [teamId]);
+  }, [teamId, session?.token]);
 
   return state;
 }

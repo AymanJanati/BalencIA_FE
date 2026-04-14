@@ -1,13 +1,15 @@
 "use client";
 
-// hooks/useCheckin.ts — BalencIA
-// Handles check-in form submission. Use in /checkin page.
+// hooks/useCheckin.ts — BalancIA
+// Handles check-in form submission. Passes auth token to the real API.
 
 import { useState } from "react";
 import type { AsyncState, CheckinPayload, CheckinResponse } from "@/types";
 import { submitCheckin } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 
 export function useCheckin() {
+  const { session } = useAuth();
   const [state, setState] = useState<AsyncState<CheckinResponse>>({
     data:    null,
     loading: false,
@@ -17,7 +19,7 @@ export function useCheckin() {
   async function submit(payload: CheckinPayload) {
     setState({ data: null, loading: true, error: null });
     try {
-      const data = await submitCheckin(payload);
+      const data = await submitCheckin(payload, session?.token);
       setState({ data, loading: false, error: null });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submission failed";

@@ -1,20 +1,21 @@
 "use client";
 
-// context/AuthContext.tsx — BalencIA
-// Holds the active user session across all pages.
-// For hackathon mode: session is set on login and stored in memory.
-// No real JWT validation — role-based routing is handled here.
+// context/AuthContext.tsx — BalancIA
+// Stores the active user session. Calls the real backend for login.
+// Falls back to mock sessions when NEXT_PUBLIC_USE_MOCK=true.
+// Session is persisted in localStorage so page refreshes don't log you out.
 
 import {
   createContext,
   useContext,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
 } from "react";
 
-import type { AuthSession, UserRole } from "@/types";
-import { getMockSessionByRole } from "@/mock-data";
+import type { AuthSession, LoginFormValues, UserRole } from "@/types";
+import { loginWithCredentials } from "@/services/api";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,8 @@ interface AuthContextValue {
   session: AuthSession | null;
   isAuthenticated: boolean;
   role: UserRole | null;
-  login: (role: UserRole) => void;   // simplified for hackathon — role-based only
+  /** Real async login — calls POST /auth/login (or mock). */
+  login: (credentials: LoginFormValues) => Promise<void>;
   logout: () => void;
 }
 
@@ -30,19 +32,43 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const SESSION_STORAGE_KEY = "balancia_session";
+
 // ─── Provider ──────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
 
-  const login = useCallback((role: UserRole) => {
-    // Hackathon mode: always resolve to seeded mock session by role
-    const mockSession = getMockSessionByRole(role);
-    setSession(mockSession);
+  // Rehydrate from localStorage on first mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as AuthSession;
+        setSession(parsed);
+      }
+    } catch {
+      // ignore corrupted storage
+    }
+  }, []);
+
+  const login = useCallback(async (credentials: LoginFormValues) => {
+    const authSession = await loginWithCredentials(credentials);
+    setSession(authSession);
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(authSession));
+    } catch {
+      // ignore storage errors (e.g. private browsing)
+    }
   }, []);
 
   const logout = useCallback(() => {
     setSession(null);
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   }, []);
 
   return (
@@ -50,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         isAuthenticated: session !== null,
-        role: session?.user.role ?? null,
+        role: (session?.user.role as UserRole) ?? null,
         login,
         logout,
       }}

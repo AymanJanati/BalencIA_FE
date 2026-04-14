@@ -1,13 +1,16 @@
-// services/api.ts — BalencIA
+// services/api.ts — BalancIA
 // All fetch logic lives here. Components never call fetch directly.
-// Toggle USE_MOCK to switch between mock data and real backend.
+// Set NEXT_PUBLIC_USE_MOCK=true in .env.local to fall back to mock data.
 
 import type {
+  AuthSession,
   CheckinPayload,
   CheckinResponse,
   EmployeeDashboard,
+  LoginFormValues,
   ManagerRecommendation,
   ManagerSummary,
+  UserProfile,
 } from "@/types";
 
 import {
@@ -15,6 +18,7 @@ import {
   getMockManagerRecommendations,
   getMockManagerSummary,
   mockLatestCheckinResponse,
+  getMockSessionByEmail,
 } from "@/mock-data";
 
 // ─── Config ────────────────────────────────────────────────────────────────
@@ -24,44 +28,81 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // ─── Internal helpers ──────────────────────────────────────────────────────
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+async function get<T>(path: string, token?: string): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const msg = body?.error?.message ?? `GET ${path} failed: ${res.status}`;
+    throw new Error(msg);
+  }
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const msg = errBody?.error?.message ?? `POST ${path} failed: ${res.status}`;
+    throw new Error(msg);
+  }
   return res.json() as Promise<T>;
+}
+
+// ─── Auth ──────────────────────────────────────────────────────────────────
+
+/**
+ * POST /auth/login
+ * Authenticate with email+password. Returns AuthSession on success.
+ */
+export async function loginWithCredentials(
+  credentials: LoginFormValues
+): Promise<AuthSession> {
+  if (USE_MOCK) {
+    await delay(700);
+    const session = getMockSessionByEmail(credentials.email);
+    if (!session) throw new Error("No demo account found for that email.");
+    return session;
+  }
+
+  const data = await post<{ success: boolean; token: string; user: UserProfile }>(
+    "/auth/login",
+    { email: credentials.email, password: credentials.password }
+  );
+  return { user: data.user, token: data.token };
 }
 
 // ─── Employee endpoints ────────────────────────────────────────────────────
 
 /**
  * POST /checkin
- * Submit employee daily check-in. Returns burnout score + AI support.
+ * Submit employee daily check-in. Returns risk breakdown + AI support.
  */
 export async function submitCheckin(
-  payload: CheckinPayload
+  payload: CheckinPayload,
+  token?: string
 ): Promise<CheckinResponse> {
   if (USE_MOCK) {
     await delay(800);
     return mockLatestCheckinResponse;
   }
-  return post<CheckinResponse>("/checkin", payload);
+  return post<CheckinResponse>("/checkin", payload, token);
 }
 
 /**
  * GET /employee/{user_id}/dashboard
- * Returns full employee dashboard: score, trend, AI support, history.
+ * Returns full employee dashboard: risk breakdown, trend, AI support.
  */
 export async function getEmployeeDashboard(
-  userId: string
+  userId: string,
+  token?: string
 ): Promise<EmployeeDashboard> {
   if (USE_MOCK) {
     await delay(600);
@@ -69,7 +110,7 @@ export async function getEmployeeDashboard(
     if (!data) throw new Error(`No mock dashboard for user ${userId}`);
     return data;
   }
-  return get<EmployeeDashboard>(`/employee/${userId}/dashboard`);
+  return get<EmployeeDashboard>(`/employee/${userId}/dashboard`, token);
 }
 
 // ─── Manager endpoints ─────────────────────────────────────────────────────
@@ -79,7 +120,8 @@ export async function getEmployeeDashboard(
  * Returns team wellbeing summary: KPIs, employee list, trend.
  */
 export async function getManagerSummary(
-  teamId: string
+  teamId: string,
+  token?: string
 ): Promise<ManagerSummary> {
   if (USE_MOCK) {
     await delay(600);
@@ -87,7 +129,7 @@ export async function getManagerSummary(
     if (!data) throw new Error(`No mock summary for team ${teamId}`);
     return data;
   }
-  return get<ManagerSummary>(`/manager/${teamId}/summary`);
+  return get<ManagerSummary>(`/manager/${teamId}/summary`, token);
 }
 
 /**
@@ -95,7 +137,8 @@ export async function getManagerSummary(
  * Returns AI-generated team-level recommendation block.
  */
 export async function getManagerRecommendations(
-  teamId: string
+  teamId: string,
+  token?: string
 ): Promise<ManagerRecommendation> {
   if (USE_MOCK) {
     await delay(500);
@@ -103,7 +146,7 @@ export async function getManagerRecommendations(
     if (!data) throw new Error(`No mock recommendations for team ${teamId}`);
     return data;
   }
-  return get<ManagerRecommendation>(`/manager/${teamId}/recommendations`);
+  return get<ManagerRecommendation>(`/manager/${teamId}/recommendations`, token);
 }
 
 // ─── Health check ──────────────────────────────────────────────────────────

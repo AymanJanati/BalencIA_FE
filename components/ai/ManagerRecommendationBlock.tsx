@@ -7,9 +7,10 @@ import Card from "@/components/ui/Card";
 interface ManagerRecommendationBlockProps {
   summary: string;
   actions: string[];
+  reasons?: string[];
 }
 
-export default function ManagerRecommendationBlock({ summary, actions }: ManagerRecommendationBlockProps) {
+export default function ManagerRecommendationBlock({ summary, actions, reasons }: ManagerRecommendationBlockProps) {
   return (
     <Card padding="lg" className="bg-brand-subtle border-brand/20 shadow-none flex flex-col gap-6 relative overflow-hidden">
       {/* Decorative gradient blur */}
@@ -23,6 +24,20 @@ export default function ManagerRecommendationBlock({ summary, actions }: Manager
           {summary}
         </p>
       </div>
+
+      {reasons && reasons.length > 0 && (
+        <div className="relative z-10 flex flex-col gap-2">
+          <h4 className="text-body font-bold text-text-primary">Key Risk Drivers</h4>
+          <ul className="flex flex-col gap-2">
+            {reasons.map((reason, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-text-secondary bg-background-primary/50 border border-border/80 px-3 py-2 rounded-md">
+                <span className="text-brand shrink-0">→</span>
+                <span>{reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {actions && actions.length > 0 && (
         <div className="relative z-10 flex flex-col gap-4">
