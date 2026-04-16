@@ -73,6 +73,30 @@ const INTERVENTION_CATALOG: Array<{
   },
 ];
 
+type ReportRun = {
+  name: string;
+  date: string;
+  status: "Completed" | "In progress";
+};
+
+function escapeCsv(value: string | number | null | undefined): string {
+  if (value == null) return "";
+  const normalized = String(value);
+  if (/[",\n]/.test(normalized)) {
+    return `"${normalized.replaceAll('"', '""')}"`;
+  }
+  return normalized;
+}
+
+function formatShortTimestamp(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function ManagerPageContent() {
   const { session, role } = useAuth();
   const router = useRouter();
@@ -87,6 +111,12 @@ function ManagerPageContent() {
   const [meetingAlertThreshold, setMeetingAlertThreshold] = useState(65);
   const [teamDigestEnabled, setTeamDigestEnabled] = useState(true);
   const [anomalyAlertsEnabled, setAnomalyAlertsEnabled] = useState(true);
+  const [reportActionLoading, setReportActionLoading] = useState<"pdf" | "csv" | "brief" | null>(null);
+  const [reportRuns, setReportRuns] = useState<ReportRun[]>([
+    { name: "Weekly Executive Snapshot", date: "Today", status: "Completed" },
+    { name: "Operational Employee Export", date: "Yesterday", status: "Completed" },
+    { name: "Intervention Impact Summary", date: "2 days ago", status: "Completed" },
+  ]);
 
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
   const [simulationLoading, setSimulationLoading] = useState(false);
@@ -213,6 +243,163 @@ function ManagerPageContent() {
     } finally {
       setSimulationLoading(false);
     }
+  }
+
+  function registerReportRun(name: string) {
+    const nextItem: ReportRun = {
+      name,
+      date: formatShortTimestamp(new Date()),
+      status: "Completed",
+    };
+    setReportRuns((current) => [nextItem, ...current].slice(0, 6));
+  }
+
+  function downloadTextFile(filename: string, content: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleExportCsv() {
+    if (!summary) return;
+    setReportActionLoading("csv");
+    const csvRows: string[] = [];
+    csvRows.push([
+      "Employee Name",
+      "Risk Level",
+      "Global Score",
+      "Stress",
+      "Fatigue",
+      "Behavior Score",
+      "Meeting Score",
+      "Latest Check-in",
+    ].join(","));
+
+    for (const employee of summary.employees) {
+      csvRows.push([
+        escapeCsv(employee.name),
+        escapeCsv(employee.risk_level),
+        escapeCsv(employee.score ?? employee.latest_score ?? ""),
+        escapeCsv(employee.stress ?? ""),
+        escapeCsv(employee.fatigue ?? ""),
+        escapeCsv(employee.behavior_score ?? ""),
+        escapeCsv(employee.meeting_score ?? ""),
+        escapeCsv(employee.latest_checkin_at ?? ""),
+      ].join(","));
+    }
+
+    const fileName = `balancia-operational-${teamId}-${reportWindow}.csv`;
+    downloadTextFile(fileName, csvRows.join("\n"), "text/csv;charset=utf-8");
+    registerReportRun("Operational Employee Export");
+    setReportActionLoading(null);
+  }
+
+  function buildBriefContent(): string {
+    if (!summary || !recommendations) return "";
+    const lines: string[] = [
+      `# BalancIA Manager Brief - ${summary.team_name}`,
+      "",
+      `Window: ${reportWindow.toUpperCase()}`,
+      `Team score: ${summary.team_wellbeing_score.toFixed(1)}/100`,
+      `High-risk employees: ${summary.high_risk_count}`,
+      `Average stress: ${summary.average_stress.toFixed(1)}/5`,
+      `Average fatigue: ${summary.average_fatigue.toFixed(1)}/5`,
+      "",
+      "## Top Risk Drivers",
+    ];
+
+    const drivers = topRiskDrivers.length > 0 ? topRiskDrivers : ["No risk drivers detected in current snapshot."];
+    for (const driver of drivers) lines.push(`- ${driver}`);
+
+    lines.push("", "## AI Recommendation Summary", recommendations.summary, "", "## Suggested Actions");
+    const actions = recommendations.actions?.length ? recommendations.actions : ["No actions returned."];
+    for (const action of actions) lines.push(`- ${action}`);
+
+    lines.push("", "## Current Anomaly Alerts");
+    for (const alert of anomalyAlerts) lines.push(`- ${alert}`);
+
+    return lines.join("\n");
+  }
+
+  function handleGenerateBrief() {
+    if (!summary || !recommendations) return;
+    setReportActionLoading("brief");
+    const fileName = `balancia-manager-brief-${teamId}-${reportWindow}.md`;
+    const content = buildBriefContent();
+    downloadTextFile(fileName, content, "text/markdown;charset=utf-8");
+    registerReportRun("Manager Brief");
+    setReportActionLoading(null);
+  }
+
+  function handleExportPdf() {
+    if (!summary || !recommendations) return;
+    setReportActionLoading("pdf");
+    const printWindow = window.open("", "_blank", "width=920,height=720");
+    if (!printWindow) {
+      setReportActionLoading(null);
+      return;
+    }
+
+    const generatedAt = new Date().toLocaleString();
+    const driverHtml = (topRiskDrivers.length ? topRiskDrivers : ["No top drivers available."])
+      .map((driver) => `<li>${driver}</li>`)
+      .join("");
+    const actionHtml = (recommendations.actions?.length ? recommendations.actions : ["No actions available."])
+      .map((action) => `<li>${action}</li>`)
+      .join("");
+
+    const html = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>BalancIA Executive Snapshot</title>
+    <style>
+      body { font-family: Arial, sans-serif; color: #111827; margin: 28px; line-height: 1.45; }
+      h1 { margin: 0 0 8px 0; }
+      h2 { margin: 24px 0 8px; font-size: 18px; }
+      .muted { color: #4b5563; margin-bottom: 20px; }
+      .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+      .card { border: 1px solid #d1d5db; border-radius: 10px; padding: 10px; }
+      .label { font-size: 11px; color: #6b7280; text-transform: uppercase; margin-bottom: 4px; }
+      .value { font-size: 20px; font-weight: 700; }
+      ul { margin: 8px 0 0 18px; padding: 0; }
+      li { margin-bottom: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>BalancIA Executive Snapshot</h1>
+    <div class="muted">${summary.team_name} | Window ${reportWindow.toUpperCase()} | Generated ${generatedAt}</div>
+
+    <div class="grid">
+      <div class="card"><div class="label">Team Score</div><div class="value">${summary.team_wellbeing_score.toFixed(1)}/100</div></div>
+      <div class="card"><div class="label">High Risk Employees</div><div class="value">${summary.high_risk_count}</div></div>
+      <div class="card"><div class="label">Avg Stress / Fatigue</div><div class="value">${summary.average_stress.toFixed(1)} / ${summary.average_fatigue.toFixed(1)}</div></div>
+    </div>
+
+    <h2>Top Risk Drivers</h2>
+    <ul>${driverHtml}</ul>
+
+    <h2>AI Recommendation Summary</h2>
+    <p>${recommendations.summary}</p>
+
+    <h2>Recommended Actions</h2>
+    <ul>${actionHtml}</ul>
+  </body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    registerReportRun("Weekly Executive Snapshot");
+    setReportActionLoading(null);
   }
 
   if (!session || role !== "manager") return null;
@@ -585,21 +772,27 @@ function ManagerPageContent() {
                   <h4 className="text-sm font-semibold text-text-primary">Executive Snapshot PDF</h4>
                   <p className="text-xs text-text-secondary mt-1">KPI summary, trend chart, top risk drivers, actions.</p>
                 </div>
-                <Button size="sm">Export PDF</Button>
+                <Button size="sm" onClick={handleExportPdf} disabled={reportActionLoading !== null}>
+                  {reportActionLoading === "pdf" ? "Preparing..." : "Export PDF"}
+                </Button>
               </div>
               <div className="rounded-lg border border-border bg-background-secondary p-4 flex flex-col gap-3">
                 <div>
                   <h4 className="text-sm font-semibold text-text-primary">Operational CSV</h4>
                   <p className="text-xs text-text-secondary mt-1">Employee-level scores, stress/fatigue, behavior and meetings.</p>
                 </div>
-                <Button size="sm" variant="secondary">Export CSV</Button>
+                <Button size="sm" variant="secondary" onClick={handleExportCsv} disabled={reportActionLoading !== null}>
+                  {reportActionLoading === "csv" ? "Preparing..." : "Export CSV"}
+                </Button>
               </div>
               <div className="rounded-lg border border-border bg-background-secondary p-4 flex flex-col gap-3">
                 <div>
                   <h4 className="text-sm font-semibold text-text-primary">Manager Brief</h4>
                   <p className="text-xs text-text-secondary mt-1">AI summary and interventions to share in weekly syncs.</p>
                 </div>
-                <Button size="sm" variant="secondary">Generate Brief</Button>
+                <Button size="sm" variant="secondary" onClick={handleGenerateBrief} disabled={reportActionLoading !== null}>
+                  {reportActionLoading === "brief" ? "Preparing..." : "Generate Brief"}
+                </Button>
               </div>
             </div>
           </Card>
@@ -607,12 +800,8 @@ function ManagerPageContent() {
           <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <Card padding="lg" className="flex flex-col gap-3">
               <h3 className="text-card-title text-text-primary">Recent Report Runs</h3>
-              {[
-                { name: "Weekly Executive Snapshot", date: "Today", status: "Completed" },
-                { name: "Operational Employee Export", date: "Yesterday", status: "Completed" },
-                { name: "Intervention Impact Summary", date: "2 days ago", status: "Completed" },
-              ].map((item) => (
-                <div key={item.name} className="rounded-md border border-border bg-background-secondary px-3 py-2 flex items-center justify-between">
+              {reportRuns.map((item, index) => (
+                <div key={`${item.name}-${item.date}-${index}`} className="rounded-md border border-border bg-background-secondary px-3 py-2 flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium text-text-primary">{item.name}</div>
                     <div className="text-xs text-text-secondary">{item.date}</div>
